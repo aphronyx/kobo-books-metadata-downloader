@@ -131,7 +131,14 @@ fn get_title(html: &Html) -> String {
 }
 
 fn get_authors_str(html: &Html) -> String {
-    todo!()
+    let authors_selector = Selector::parse("a.contributor-name").expect("Invalid selector");
+    let authors_str = html
+        .select(&authors_selector)
+        .map(|a| a.text().collect::<String>())
+        .collect::<Vec<String>>()
+        .join(", ");
+
+    authors_str
 }
 
 fn get_series_name(html: &Html) -> Option<String> {
@@ -204,10 +211,13 @@ mod tests {
     }
 
     #[test]
-    fn test_non_existent_book_title() -> Result<()> {
-        let book_page = get_book_page("none")?;
-        let book_title = get_title(&book_page);
+    fn test_book_authors() -> Result<()> {
+        let book_page = get_book_page("let-it-snow-5")?;
+        let book_authors = get_authors_str(&book_page);
 
-        Ok(assert_eq!(book_title, ""))
+        Ok(assert_eq!(
+            book_authors,
+            "John Green, Lauren Myracle, Maureen Johnson"
+        ))
     }
 }
