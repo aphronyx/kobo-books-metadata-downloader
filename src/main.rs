@@ -1,3 +1,5 @@
+use std::io::{stdin, Result};
+
 enum Rating {
     NotRated,
     One,
@@ -22,6 +24,17 @@ struct Book {
     language: String,
 }
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> Result<()> {
+    println!("Enter Kobo book URLs:");
+    loop {
+        let mut input = String::new();
+        stdin().read_line(&mut input)?;
+
+        if input.trim() == "done" {
+            println!("Done!");
+            break;
+        }
+    }
+
+    Ok(())
 }
