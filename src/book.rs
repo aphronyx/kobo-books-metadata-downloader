@@ -1,4 +1,5 @@
 use anyhow::Result;
+use indicatif::ProgressBar;
 use scraper::{Html, Selector};
 use std::{
     fmt::Display,
@@ -50,30 +51,42 @@ pub fn get_id(input: &str) -> Option<String> {
     Some(book_id)
 }
 
-pub fn get_metadata(id: &str) -> Result<Metadata> {
+pub fn get_metadata(id: &str, pb: &ProgressBar) -> Result<Metadata> {
     let book_page = get_book_page(id)?;
+    pb.inc(1);
 
     let title = get_title(&book_page);
+    pb.inc(1);
 
     let authors = get_authors_str(&book_page);
+    pb.inc(1);
 
     let series_name = get_series_name(&book_page);
+    pb.inc(1);
 
     let series_index = get_series_index(&book_page);
+    pb.inc(1);
 
     let cover = get_cover_url(&book_page);
+    pb.inc(1);
 
     let synopsis = get_synopsis_html(&book_page);
+    pb.inc(1);
 
     let tags = get_tags_str(&book_page);
+    pb.inc(1);
 
     let rating = get_rating(&book_page);
+    pb.inc(1);
 
     let publisher = get_publisher(&book_page);
+    pb.inc(1);
 
     let release_date = get_release_date(&book_page);
+    pb.inc(1);
 
     let language = get_language(&book_page);
+    pb.inc(1);
 
     Ok(Metadata {
         id: id.to_string(),
@@ -234,7 +247,7 @@ fn get_language(html: &Html) -> String {
 }
 
 impl Metadata {
-    pub fn append_to_csv_file(self) -> Result<()> {
+    pub fn append_to_csv_file(self, pb: &ProgressBar) -> Result<()> {
         let img_dir = "./img";
         if !Path::new(img_dir).exists() {
             create_dir(img_dir)?;
@@ -258,6 +271,7 @@ impl Metadata {
 
         let img = img_response.bytes()?;
         img_file.write_all(&img)?;
+        pb.inc(1);
 
         let mut csv_file = OpenOptions::new()
             .create(true)
@@ -281,6 +295,7 @@ impl Metadata {
             self.language
         );
         csv_file.write_all(line.as_bytes())?;
+        pb.inc(1);
 
         Ok(())
     }
@@ -422,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_book_metadata() -> Result<()> {
-        let book_metadata = get_metadata("J2FjG5BoyDiEQfQn-uI4OA")?;
+        let book_metadata = get_metadata("J2FjG5BoyDiEQfQn-uI4OA", &ProgressBar::hidden())?;
 
         let test_book_metadata = Metadata {
             id: "J2FjG5BoyDiEQfQn-uI4OA".to_string(),
@@ -458,7 +473,7 @@ mod tests {
             release_date: "0000-0-0".to_string(),
             language: "language".to_string(),
         };
-        book_metadata.append_to_csv_file()?;
+        book_metadata.append_to_csv_file(&ProgressBar::hidden())?;
 
         let csv_file = fs::read_to_string(CSV_FILE_PATH)?.trim().to_string();
         let test_csv_file = r#""id","title","auth, ors","series name","0","./img/1.jpg","<p>synopsis</p>","t, a, g, s","0","publisher","0000-0-0","language""#;

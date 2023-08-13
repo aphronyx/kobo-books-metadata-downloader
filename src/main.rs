@@ -1,6 +1,7 @@
 mod book;
 
 use anyhow::Result;
+use indicatif::ProgressBar;
 use std::io::stdin;
 
 fn main() -> Result<()> {
@@ -22,9 +23,13 @@ fn main() -> Result<()> {
         book_ids.push(book_id);
     }
 
+    let pb = ProgressBar::new(book_ids.len() as u64);
     for book_id in book_ids {
-        let book_metadata = book::get_metadata(&book_id)?;
-        book_metadata.append_to_csv_file()?;
+        let book_pb = ProgressBar::new(14);
+        let book_metadata = book::get_metadata(&book_id, &book_pb)?;
+        book_metadata.append_to_csv_file(&book_pb)?;
+        book_pb.finish_and_clear();
+        pb.inc(1);
     }
 
     Ok(println!("Done!"))
