@@ -199,12 +199,25 @@ fn get_tags_str(html: &Html) -> String {
     tags_vec.join(", ")
 }
 
-fn get_rating(html: &Html) -> Rating {
-    todo!()
+// TODO
+fn get_rating(_: &Html) -> Rating {
+    Rating::NotRated
 }
 
 fn get_publisher(html: &Html) -> String {
-    todo!()
+    let imprint_selector =
+        Selector::parse("a.description-anchor > span").expect("Invalid selector");
+    let publishing_company_selector =
+        Selector::parse("div.bookitem-secondary-metadata li").expect("Invalid selector");
+    let publisher = html.select(&imprint_selector).next().map_or(
+        html.select(&publishing_company_selector)
+            .next()
+            .map(|li| li.text().collect::<String>().trim().to_string())
+            .unwrap_or_default(),
+        |span| span.text().collect(),
+    );
+
+    publisher
 }
 
 fn get_release_date(html: &Html) -> String {
@@ -308,5 +321,13 @@ mod tests {
         let test_tags = test_tags_vec.join(", ");
 
         Ok(assert_eq!(book_tags, test_tags))
+    }
+
+    #[test]
+    fn test_book_publisher() -> Result<()> {
+        let book_page = get_book_page("silent-witch-1")?;
+        let book_publisher = get_publisher(&book_page);
+
+        Ok(assert_eq!(book_publisher, "台灣角川"))
     }
 }
