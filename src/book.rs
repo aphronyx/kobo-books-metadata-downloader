@@ -246,6 +246,20 @@ fn get_language(html: &Html) -> String {
     language
 }
 
+impl Display for Rating {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let rating = match self {
+            Rating::NotRated => 0,
+            Rating::One => 1,
+            Rating::Two => 2,
+            Rating::Three => 3,
+            Rating::Four => 4,
+            Rating::Five => 5,
+        };
+        write!(f, "{}", rating)
+    }
+}
+
 impl Metadata {
     pub fn append_to_csv_file(self, pb: &ProgressBar) -> Result<()> {
         let img_dir = "./img";
@@ -298,20 +312,6 @@ impl Metadata {
         pb.inc(1);
 
         Ok(())
-    }
-}
-
-impl Display for Rating {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let rating = match self {
-            Rating::NotRated => 0,
-            Rating::One => 1,
-            Rating::Two => 2,
-            Rating::Three => 3,
-            Rating::Four => 4,
-            Rating::Five => 5,
-        };
-        write!(f, "{}", rating)
     }
 }
 
