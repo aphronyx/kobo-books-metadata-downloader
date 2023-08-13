@@ -134,7 +134,7 @@ fn get_authors_str(html: &Html) -> String {
     let authors_selector = Selector::parse("a.contributor-name").expect("Invalid selector");
     let authors_str = html
         .select(&authors_selector)
-        .map(|a| a.text().collect::<String>())
+        .map(|a| a.text().collect())
         .collect::<Vec<String>>()
         .join(", ");
 
@@ -144,11 +144,7 @@ fn get_authors_str(html: &Html) -> String {
 fn get_series_name(html: &Html) -> Option<String> {
     let series_name_selector =
         Selector::parse("a[data-track-info='{}']").expect("Invalid selector");
-    let series_name = html
-        .select(&series_name_selector)
-        .next()?
-        .text()
-        .collect::<String>();
+    let series_name = html.select(&series_name_selector).next()?.text().collect();
 
     Some(series_name)
 }
@@ -162,7 +158,7 @@ fn get_series_index(html: &Html) -> Option<f64> {
         .text()
         .collect::<String>()
         .replace(|char: char| !(char.is_ascii_digit() || char == '.'), "")
-        .parse::<f64>()
+        .parse()
         .ok();
 
     series_index
@@ -181,7 +177,14 @@ fn get_cover_url(html: &Html) -> String {
 }
 
 fn get_synopsis_html(html: &Html) -> String {
-    todo!()
+    let synopsis_selector = Selector::parse("div.synopsis-description").expect("Invalid selector");
+    let synopsis_html = html
+        .select(&synopsis_selector)
+        .next()
+        .map(|div| div.inner_html())
+        .unwrap_or_default();
+
+    synopsis_html
 }
 
 fn get_tags_str(html: &Html) -> String {
@@ -273,5 +276,15 @@ mod tests {
         let book_cover = get_cover_url(&book_page);
 
         Ok(assert_eq!(book_cover, "https://cdn.kobo.com/book-images/28289ceb-265c-488a-bf08-ae3424588a91/1650/2200/100/False/tSfRgYbwtzGWxEne-NJKWw.jpg"))
+    }
+
+    #[test]
+    fn test_book_synopsis() -> Result<()> {
+        let book_page = get_book_page("tSfRgYbwtzGWxEne-NJKWw")?;
+        let book_synopsis =
+            get_synopsis_html(&book_page).replace(|char: char| char.is_ascii_control(), "");
+        let test_book_synopsis = "<p>美國亞馬遜讀者評鑑最高票，全球暢銷三千萬冊著作已逝奇幻大師，羅伯特．喬丹指定接班人</p><p>09年「時光之輪」接班作《風起雲湧》，打敗丹布朗新書《失落的符號》，空降紐約時報排行榜冠軍作者</p><p>《出版人週刊》、《軌跡雜誌》、《美國圖書館協會誌》、《克科斯評論》極優評價</p><p>美國最大邦諾連鎖書店頭號選書作者、西班牙UPC科幻大獎得主</p><p>2005年出道即獲《浪漫時代 Romantic Times》奇幻史詩大獎</p><p>2006、2007年入選美國科奇幻地位最高約翰．坎伯新人獎</p><p>超級天才新星作家──布蘭登．山德森全新華麗鉅作</p><p>架構壯閣媲美「冰與火之歌」，精采絕妙更勝「夜巡者」</p><p>「這本書有完美縝密的架構……我極度推薦給任何渴求一本好書的讀者。」──羅蘋．荷布（「刺客」系列作者）</p><p>「 我很驕傲、很榮幸、很迫切想要介紹這位作者和他的作品給所有讀者。」──灰鷹／譚光磊（版權經紀人）</p><p>「 一個繁複的革命計畫，透過作者縝密的佈局，逐步實行。小說結構完整，前後緊密聯繫；布蘭登．山德森能否抽空來寫部推理小說？」──紗卡（推理文學研究會MLR）</p><p>一個不可能成功的絕望計畫，而勝利，將是最糟的代價……</p><p>迷霧之子</p><p>首部曲：最後帝國</p><p>Mistborn: The Final Empire</p><p>「他說：任何人都會背叛你，任何人。」</p><p>如果背叛無所不在，如果一切非你以為那樣，</p><p>你有勇氣知道真相嗎？</p><p>這是個英雄殞落，邪惡籠罩的世界，再不見光明與顏色。</p><p>入夜後，迷霧四起，誰也不曉得，藏身在白茫霧色之後的，會是什麼……</p><p>千年前，善惡雙方決戰，良善一方的英雄歷經千辛萬苦，終於抵達傳說中的聖地「昇華之井」，準備和黑暗勢力一決生死。</p><p>可是，命運女神沒有站在良善這方。</p><p>最後，邪惡擊潰英雄，一統天下，並自稱「統御主」，同時建立「最後帝國」，號稱千秋萬代、永不崩塌。至此，世界隨之變遷，從此綠色不再，所有植物都轉為褐黃，天空永遠陰霾，不間斷地下著灰燼，彷彿是浩劫過後的殘破荒地。入夜之後，濃霧四起，籠罩大地。</p><p>統御主如神一般無敵，以絕對的權力和極端的高壓恐怖統治著最後帝國。他更以凶殘的手段鎮壓平民百姓，不分國籍種族通通打為奴隸階級，通稱「司卡」。司卡人活在無止盡的悲慘和恐懼之中，千年來的奴役讓他們早已沒有希望，沒有任何過去的記憶。</p><p>如今，一線生機浮現。二名貴族與司卡混血卻天賦異稟、身負使命的街頭小人物，即將編織一場前所未有的騙局，進行一項絕不可能成功的計畫，只為了獲得最糟糕的代價──勝利……</p><p>迷霧之子三部曲　Mistborn Trilogy──</p><p>首部曲：最後帝國The Final Empire</p><p>二部曲：昇華之井The Well of Ascension 2010年4月出版</p><p>終部曲：永世英雄The Hero of Ages 2010年6月出版</p>";
+
+        Ok(assert_eq!(book_synopsis, test_book_synopsis))
     }
 }
