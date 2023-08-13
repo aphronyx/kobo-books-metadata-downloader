@@ -1,5 +1,5 @@
 use anyhow::Result;
-use scraper::Html;
+use scraper::{Html, Selector};
 use std::io::stdin;
 
 enum Rating {
@@ -120,7 +120,14 @@ fn get_book_page(id: &str) -> Result<Html> {
 }
 
 fn get_title(html: &Html) -> String {
-    todo!()
+    let title_selector = Selector::parse("div.item-info > h1").expect("Invalid selector");
+    let title = html
+        .select(&title_selector)
+        .next()
+        .map(|h1| h1.text().collect::<String>().trim().to_string())
+        .unwrap_or_default();
+
+    title
 }
 
 fn get_authors_str(html: &Html) -> String {
@@ -183,8 +190,24 @@ mod tests {
 
     #[test]
     fn input_kobo_book_url() {
-        let book_name = get_book_id("https://www.kobo.com/tw/zh/ebook/1YvaPLVESzSiJ");
+        let book_name = get_book_id("https://www.kobo.com/tw/zh/ebook/tSfRgYbwtzGWxEne-NJKWw");
 
-        assert_eq!(book_name, Some("1YvaPLVESzSiJ".to_string()))
+        assert_eq!(book_name, Some("tSfRgYbwtzGWxEne-NJKWw".to_string()))
+    }
+
+    #[test]
+    fn test_book_title() -> Result<()> {
+        let book_page = get_book_page("tSfRgYbwtzGWxEne-NJKWw")?;
+        let book_title = get_title(&book_page);
+
+        Ok(assert_eq!(book_title, "迷霧之子首部曲：最後帝國"))
+    }
+
+    #[test]
+    fn test_non_existent_book_title() -> Result<()> {
+        let book_page = get_book_page("none")?;
+        let book_title = get_title(&book_page);
+
+        Ok(assert_eq!(book_title, ""))
     }
 }
