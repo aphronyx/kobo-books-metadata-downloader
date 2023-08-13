@@ -154,7 +154,18 @@ fn get_series_name(html: &Html) -> Option<String> {
 }
 
 fn get_series_index(html: &Html) -> Option<f64> {
-    todo!()
+    let series_index_selector =
+        Selector::parse("span.sequenced-name-prefix").expect("Invalid selector");
+    let series_index = html
+        .select(&series_index_selector)
+        .next()?
+        .text()
+        .collect::<String>()
+        .replace(|char: char| !(char.is_ascii_digit() || char == '.'), "")
+        .parse::<f64>()
+        .ok();
+
+    series_index
 }
 
 fn get_cover_url(html: &Html) -> String {
@@ -238,5 +249,13 @@ mod tests {
             book_series_name,
             Some("The Skyward Series".to_string())
         ))
+    }
+
+    #[test]
+    fn test_book_series_index() -> Result<()> {
+        let book_page = get_book_page("YOylwW_Z6jKJP7HpcEr0Ig")?;
+        let book_series_index = get_series_index(&book_page);
+
+        Ok(assert_eq!(book_series_index, Some(13.5)))
     }
 }
