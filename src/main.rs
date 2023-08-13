@@ -2,6 +2,7 @@ use anyhow::Result;
 use scraper::{Html, Selector};
 use std::io::stdin;
 
+#[derive(Debug, PartialEq)]
 enum Rating {
     NotRated,
     One,
@@ -11,6 +12,7 @@ enum Rating {
     Five,
 }
 
+#[derive(Debug, PartialEq)]
 struct Book {
     id: String,
     title: String,
@@ -369,5 +371,27 @@ mod tests {
         let book_language = get_language(&book_page);
 
         Ok(assert_eq!(book_language, "英文"))
+    }
+
+    #[test]
+    fn test_book_metadata() -> Result<()> {
+        let book_metadata = get_book_metadata("J2FjG5BoyDiEQfQn-uI4OA")?;
+
+        let test_book_metadata = Book {
+            id: "J2FjG5BoyDiEQfQn-uI4OA".to_string(),
+            title: "不便利的便利店".to_string(),
+            authors: "金浩然 （김호연）".to_string(),
+            series_name: Some("Soul".to_string()),
+            series_index: None,
+            cover: "https://cdn.kobo.com/book-images/04b3ec92-aaa7-4757-b1ac-ff143aed0848/1650/2200/100/False/J2FjG5BoyDiEQfQn-uI4OA.jpg".to_string(),
+            synopsis: "<p><strong>人生就是會有很多不便利、不舒服，</strong><br>\n<strong>這間有點慘澹的便利店，卻為我們撐起了閃閃發光的空間……</strong></p>\n<p><strong>艱難時刻的光亮之書</strong><br>\n<strong>一間便利店，接通了我們的幸福人生</strong></p>\n<p><strong>★韓國年度最受歡迎小說</strong><br>\n<strong>★銷售破70萬冊，25個都市特選年度之書</strong><br>\n<strong>★Yes24年度之書，韓國各大書店排行榜總冠軍，口碑直追《歡迎光臨夢境百貨》</strong><br>\n<strong>★電子書平台「米莉的書齋」年度圖書第二名</strong><br>\n<strong>★韓國中央圖書館館員推薦之書</strong><br>\n<strong>★售出泰、日、簡中、台灣、越南、印尼等多國版權</strong><br>\n<strong>★影視改編熱烈進行中</strong></p>\n<p>◎全球獨家收錄：作者手寫給台灣讀者的問候箋</p>\n<p>謝哲青＼作家、旅行家<br>\n盧建彰＼導演<br>\n李盈姿＼芒草心慈善協會祕書長<br>\n別家門市＼「超商系」插畫粉絲團<br>\n太咪＼作家、《太咪瘋韓國》版主<br>\n山女孩kit＼作家<br>\n方億玲＼而立書店店長<br>\n徐慧玲＼聆韵企管顧問創辦人──鼓掌推薦</p>\n<p>◎韓國讀者口碑推薦：</p>\n<p>‧這是一本我想推薦給所有人的人生之書。你讀的時候，很可能一會兒哭一會兒笑，但不知不覺間心頭就暖呼呼了。<br>\n‧擦肩而過的人，竟然可以成為彼此生活前進的支撐。一本讓我看到人生力量的書。<br>\n‧我的眼角掛著淚，嘴邊帶著笑。多虧這本書，讓我熬過疫病籠罩的日子。<br>\n‧哭著，笑著，心也跟著暖了。<br>\n‧場景不陌生、人物不陌生，就連裡面的衝突也不陌生，但是人們彼此表達善意卻是這個冷陌時代最需要的態度。</p>\n<p><strong>這間有點不便利，卻讓人想一再前往的便利店，</strong><br>\n<strong>藏著能在艱難生活中給你安慰的各樣物品。</strong></p>\n<p><strong>買一送一的喜悅、三角飯糰模樣的悲傷，</strong><br>\n<strong>以及一萬元所帶來的四次歡笑，</strong><br>\n<strong>充滿特別的故事與奇妙商品組合的便利店，時時歡迎您！</strong></p>\n<p>廉女士搭火車途中，驚覺錢包不見了，此時一通電話來告知，說在車站撿到了包包，還嚅囁詢問能否借用點錢買便當吃。廉女士答應了。</p>\n<p>果然如她所想，對方是一名流浪漢。廉女士在拿回包包時，告知對方，歡迎他來自己經營的便利店吃便當。</p>\n<p>這間便利店生意不太好，店員更是各種邊緣人的組合：上了年紀還為子女操碎了心的婦人；準備公務員考試多年的年輕女孩；五十多歲靠微薄薪水養家的一家之主。而廉女士為了如同家人般的員工，努力把店鋪撐了下來。</p>\n<p>然而，大夜班店員突然辭職，讓她苦惱不已。就在這時，常來吃報廢便當的流浪漢竟陰錯陽差接下這份工作……</p>\n<p>\u{f0d8}</p>\n<p><strong>只差一點點就陷落於孤立和衝突的人生，</strong><br>\n<strong>如何在這個小小的空間裡悄悄獲得喘息？</strong><br>\n<strong>一間不夠便利的便利店，又如何接通大家的幸福人生？</strong></p>\n<p><strong>◎便利店「幫人生加值」小語</strong></p>\n<p>※我問，支持妳的力量究竟是什麼？<br>\n她說，人生本來就是不斷解決問題，既然都要解決問題，那就努力選還可以的問題來解。</p>\n<p>※便利店是個人們來來去去的空間，無論店員還是客人，都只是短暫停留的過客。便利店就像間加油站，讓人們用物品或金錢為自己加值。</p>\n<p>※為什麼開心？因為炸雞？因為爸爸的陪伴？其實無論是什麼都沒關係，因為能一起吃雞的就是家人。</p>\n<p>※人生就是關係，關係的根本就是溝通。我發現只要我們能跟身旁的人交心，幸福其實離我們不遠。</p>\n<p>※巴布狄倫的外婆曾經告訴他，幸福不是在通往目標路途上的某樣東西，而是那條路本身就是幸福。你所遇見的每個人，都在苦苦掙扎著與什麼對抗，所以你必須親切待人。</p>\n<p>【作者簡介】<strong>金浩然（김호연）</strong></p>\n<p><strong>全天候說故事的人</strong><br>\n<strong>人生目標：透過電影、漫畫、小說講述各樣故事</strong></p>\n<p>1974年出生於首爾。畢業於高麗大學人文學院國語國文學科。初入職場時，在電影公司參與創作的劇本《諜變任務》被改編為電影，自此成為編劇。<br>\n第二份工作是擔任漫畫策劃人員，撰寫的《人體實驗區》獲得第一屆富川漫畫故事競賽大獎，自此成了漫畫腳本家。在出版社擔任小說編輯一陣子之後，決定轉換跑道，成為為全職作家。<br>\n他努力實踐「年輕時就該任意揮灑文字」的理念，以長篇小說《望遠洞兄弟》奪下2013年第9屆世界文學獎的優秀獎，展開小說家生涯之路。此後還推出長篇小說《情敵》《幽靈作家》《浮士德》及散文集《每天寫，重新寫，寫到最後》，並參與電影《烈日追殺》的劇本及《南漢山城》的策劃。<br>\n2021年繼《望遠洞兄弟》以後，再度推出描繪鄰里人情的溫暖故事《不便利的便利店》，成為口碑長紅的年度暢銷冠軍，並售出多國版權，影視改編也熱烈進行中。</p>\n<p>＊獲獎紀錄：</p>\n<p>《人體實驗區》獲第一屆富川漫畫故事競賽<br>\n《望遠洞兄弟》獲2013年第9屆世界文學獎優秀獎<br>\n《不便利的便利店》獲韓國超過25個都市選爲年度之書</p>\n<p>譯者 <strong>陳品芳</strong><br>\n政大韓文系畢，曾於台韓兩地職場打滾，目前為韓中專職譯者。熱愛各種二、三次元娛樂，享受在趕稿與耍廢之間穿梭的自由時光。譯有《剝削首爾》《讓尼采當你的心理師》《K-Pop征服世界的秘密》等書。</p>\n".to_string(),
+            tags: "小說與文學".to_string(),
+            rating: Rating::NotRated,
+            publisher: "寂寞".to_string(),
+            release_date: "2022-9-1".to_string(),
+            language: "中文".to_string(),
+        };
+
+        Ok(assert_eq!(book_metadata, test_book_metadata))
     }
 }
