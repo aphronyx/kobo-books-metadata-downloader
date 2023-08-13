@@ -241,7 +241,15 @@ fn get_release_date(html: &Html) -> String {
 }
 
 fn get_language(html: &Html) -> String {
-    todo!()
+    let language_selector =
+        Selector::parse("div.bookitem-secondary-metadata li > span").expect("Invalid selector");
+    let language = html
+        .select(&language_selector)
+        .nth(2)
+        .map(|span| span.text().collect())
+        .unwrap_or_default();
+
+    language
 }
 
 #[cfg(test)]
@@ -353,5 +361,13 @@ mod tests {
         let book_release_date = get_release_date(&book_page);
 
         Ok(assert_eq!(book_release_date, "2022-5-27"))
+    }
+
+    #[test]
+    fn test_book_language() -> Result<()> {
+        let book_page = get_book_page("mistborn-trilogy")?;
+        let book_language = get_language(&book_page);
+
+        Ok(assert_eq!(book_language, "英文"))
     }
 }
