@@ -169,7 +169,15 @@ fn get_series_index(html: &Html) -> Option<f64> {
 }
 
 fn get_cover_url(html: &Html) -> String {
-    todo!()
+    let cover_selector = Selector::parse("link[as='image']").expect("Invalid selector");
+    let cover_url = html
+        .select(&cover_selector)
+        .next()
+        .and_then(|link| link.value().attr("href"))
+        .map(|url| url.replace("/353/569/90/", "/1650/2200/100/"))
+        .unwrap_or_default();
+
+    cover_url
 }
 
 fn get_synopsis_html(html: &Html) -> String {
@@ -257,5 +265,13 @@ mod tests {
         let book_series_index = get_series_index(&book_page);
 
         Ok(assert_eq!(book_series_index, Some(13.5)))
+    }
+
+    #[test]
+    fn test_book_cover() -> Result<()> {
+        let book_page = get_book_page("tSfRgYbwtzGWxEne-NJKWw")?;
+        let book_cover = get_cover_url(&book_page);
+
+        Ok(assert_eq!(book_cover, "https://cdn.kobo.com/book-images/28289ceb-265c-488a-bf08-ae3424588a91/1650/2200/100/False/tSfRgYbwtzGWxEne-NJKWw.jpg"))
     }
 }
