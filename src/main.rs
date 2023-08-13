@@ -60,3 +60,29 @@ fn get_book_id(input: &str) -> Option<String> {
 
     Some(book_id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn input_non_kobo_url() {
+        let book_name = get_book_id("done");
+
+        assert_eq!(book_name, None)
+    }
+
+    #[test]
+    fn input_no_id_url() {
+        let book_name = get_book_id("https://www.kobo.com/tw/zh/ebook/");
+
+        assert_eq!(book_name, None)
+    }
+
+    #[test]
+    fn input_kobo_book_url() {
+        let book_name = get_book_id("https://www.kobo.com/tw/zh/ebook/1YvaPLVESzSiJ");
+
+        assert_eq!(book_name, Some("1YvaPLVESzSiJ".to_string()))
+    }
+}
