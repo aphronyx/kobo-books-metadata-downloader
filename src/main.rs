@@ -221,7 +221,23 @@ fn get_publisher(html: &Html) -> String {
 }
 
 fn get_release_date(html: &Html) -> String {
-    todo!()
+    let release_date_selector =
+        Selector::parse("div.bookitem-secondary-metadata li > span").expect("Invalid selector");
+    let release_date = html
+        .select(&release_date_selector)
+        .next()
+        .map(|span| {
+            let mut date = span
+                .text()
+                .collect::<String>()
+                .replace(|char: char| !char.is_ascii_digit(), "-");
+            date.pop();
+
+            date
+        })
+        .unwrap_or_default();
+
+    release_date
 }
 
 fn get_language(html: &Html) -> String {
@@ -329,5 +345,13 @@ mod tests {
         let book_publisher = get_publisher(&book_page);
 
         Ok(assert_eq!(book_publisher, "台灣角川"))
+    }
+
+    #[test]
+    fn test_book_release_date() -> Result<()> {
+        let book_page = get_book_page("silent-witch-1")?;
+        let book_release_date = get_release_date(&book_page);
+
+        Ok(assert_eq!(book_release_date, "2022-5-27"))
     }
 }
