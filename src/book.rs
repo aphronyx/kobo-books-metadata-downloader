@@ -37,82 +37,6 @@ pub struct Metadata {
     language: String,
 }
 
-pub fn get_id(input: &str) -> Option<String> {
-    let is_not_kobo_book_url = !input.contains(BOOK_PATH);
-    if is_not_kobo_book_url {
-        return None;
-    }
-
-    let book_id = input
-        .rsplit_once('/')
-        .map(|(_, substring)| substring.trim().to_string())
-        .filter(|id| !id.is_empty())?;
-
-    Some(book_id)
-}
-
-pub fn get_metadata(id: &str, pb: &ProgressBar) -> Result<Metadata> {
-    let book_page = get_book_page(id)?;
-    pb.inc(1);
-
-    let title = book_page.get_title();
-    pb.inc(1);
-
-    let authors = book_page.get_authors_str();
-    pb.inc(1);
-
-    let series_name = book_page.get_series_name();
-    pb.inc(1);
-
-    let series_index = book_page.get_series_index();
-    pb.inc(1);
-
-    let cover = book_page.get_cover_url();
-    pb.inc(1);
-
-    let synopsis = book_page.get_synopsis_html();
-    pb.inc(1);
-
-    let tags = book_page.get_tags_str();
-    pb.inc(1);
-
-    let rating = book_page.get_rating();
-    pb.inc(1);
-
-    let publisher = book_page.get_publisher();
-    pb.inc(1);
-
-    let release_date = book_page.get_release_date();
-    pb.inc(1);
-
-    let language = book_page.get_language();
-    pb.inc(1);
-
-    Ok(Metadata {
-        id: id.to_string(),
-        title,
-        authors,
-        series_name,
-        series_index,
-        cover,
-        synopsis,
-        tags,
-        rating,
-        publisher,
-        release_date,
-        language,
-    })
-}
-
-fn get_book_page(id: &str) -> Result<Html> {
-    let book_page_url = format!("{}{}", BOOK_PATH, id);
-    let book_page_response = reqwest::blocking::get(book_page_url)?;
-    let book_page_html = book_page_response.text()?;
-    let book_page = Html::parse_document(&book_page_html);
-
-    Ok(book_page)
-}
-
 impl Display for Rating {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let rating = match self {
@@ -179,6 +103,89 @@ impl Metadata {
         pb.inc(1);
 
         Ok(())
+    }
+}
+
+pub trait Id {
+    fn from(self) -> Option<String>;
+    fn get_metadata(self, pb: &ProgressBar) -> Result<Metadata>;
+    fn get_book_page(self) -> Result<Html>;
+}
+
+impl Id for &str {
+    fn from(self) -> Option<String> {
+        let is_not_kobo_book_url = !self.contains(BOOK_PATH);
+        if is_not_kobo_book_url {
+            return None;
+        }
+
+        let book_id = self
+            .rsplit_once('/')
+            .map(|(_, substring)| substring.trim().to_string())
+            .filter(|id| !id.is_empty())?;
+
+        Some(book_id)
+    }
+
+    fn get_metadata(self, pb: &ProgressBar) -> Result<Metadata> {
+        let book_page = self.get_book_page()?;
+        pb.inc(1);
+
+        let title = book_page.get_title();
+        pb.inc(1);
+
+        let authors = book_page.get_authors_str();
+        pb.inc(1);
+
+        let series_name = book_page.get_series_name();
+        pb.inc(1);
+
+        let series_index = book_page.get_series_index();
+        pb.inc(1);
+
+        let cover = book_page.get_cover_url();
+        pb.inc(1);
+
+        let synopsis = book_page.get_synopsis_html();
+        pb.inc(1);
+
+        let tags = book_page.get_tags_str();
+        pb.inc(1);
+
+        let rating = book_page.get_rating();
+        pb.inc(1);
+
+        let publisher = book_page.get_publisher();
+        pb.inc(1);
+
+        let release_date = book_page.get_release_date();
+        pb.inc(1);
+
+        let language = book_page.get_language();
+        pb.inc(1);
+
+        Ok(Metadata {
+            id: self.to_string(),
+            title,
+            authors,
+            series_name,
+            series_index,
+            cover,
+            synopsis,
+            tags,
+            rating,
+            publisher,
+            release_date,
+            language,
+        })
+    }
+
+    fn get_book_page(self) -> Result<Html> {
+        let book_page_url = format!("{}{}", BOOK_PATH, self);
+        let book_page_html = reqwest::blocking::get(book_page_url)?.text()?;
+        let book_page = Html::parse_document(&book_page_html);
+
+        Ok(book_page)
     }
 }
 
@@ -339,35 +346,35 @@ mod tests {
 
     #[test]
     fn input_non_kobo_url() {
-        let book_id = get_id("done");
+        let book_id = Id::from("done");
 
         assert_eq!(book_id, None)
     }
 
     #[test]
     fn input_no_id_url() {
-        let book_id = get_id("https://www.kobo.com/tw/zh/ebook/");
+        let book_id = Id::from("https://www.kobo.com/tw/zh/ebook/");
 
         assert_eq!(book_id, None)
     }
 
     #[test]
     fn input_kobo_book_url() {
-        let book_id = get_id("https://www.kobo.com/tw/zh/ebook/tSfRgYbwtzGWxEne-NJKWw");
+        let book_id = Id::from("https://www.kobo.com/tw/zh/ebook/tSfRgYbwtzGWxEne-NJKWw");
 
         assert_eq!(book_id, Some("tSfRgYbwtzGWxEne-NJKWw".to_string()))
     }
 
     #[test]
     fn test_book_title() -> Result<()> {
-        let book_title = get_book_page("tSfRgYbwtzGWxEne-NJKWw")?.get_title();
+        let book_title = "tSfRgYbwtzGWxEne-NJKWw".get_book_page()?.get_title();
 
         Ok(assert_eq!(book_title, "迷霧之子首部曲：最後帝國"))
     }
 
     #[test]
     fn test_book_authors() -> Result<()> {
-        let book_authors = get_book_page("let-it-snow-5")?.get_authors_str();
+        let book_authors = "let-it-snow-5".get_book_page()?.get_authors_str();
 
         Ok(assert_eq!(
             book_authors,
@@ -377,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_book_series_name() -> Result<()> {
-        let book_series_name = get_book_page("defiant-68")?.get_series_name();
+        let book_series_name = "defiant-68".get_book_page()?.get_series_name();
 
         Ok(assert_eq!(
             book_series_name,
@@ -387,21 +394,22 @@ mod tests {
 
     #[test]
     fn test_book_series_index() -> Result<()> {
-        let book_series_index = get_book_page("YOylwW_Z6jKJP7HpcEr0Ig")?.get_series_index();
+        let book_series_index = "YOylwW_Z6jKJP7HpcEr0Ig".get_book_page()?.get_series_index();
 
         Ok(assert_eq!(book_series_index, Some(13.5)))
     }
 
     #[test]
     fn test_book_cover() -> Result<()> {
-        let book_cover = get_book_page("tSfRgYbwtzGWxEne-NJKWw")?.get_cover_url();
+        let book_cover = "tSfRgYbwtzGWxEne-NJKWw".get_book_page()?.get_cover_url();
 
         Ok(assert_eq!(book_cover, "https://cdn.kobo.com/book-images/28289ceb-265c-488a-bf08-ae3424588a91/1650/2200/100/False/tSfRgYbwtzGWxEne-NJKWw.jpg"))
     }
 
     #[test]
     fn test_book_synopsis() -> Result<()> {
-        let book_synopsis = get_book_page("tSfRgYbwtzGWxEne-NJKWw")?
+        let book_synopsis = "tSfRgYbwtzGWxEne-NJKWw"
+            .get_book_page()?
             .get_synopsis_html()
             .replace(|char: char| char.is_ascii_control(), "");
 
@@ -412,7 +420,7 @@ mod tests {
 
     #[test]
     fn test_book_tags() -> Result<()> {
-        let book_tags = get_book_page("i-357")?.get_tags_str();
+        let book_tags = "i-357".get_book_page()?.get_tags_str();
 
         let mut test_tags_vec = "青少年 - YA, 漫畫、圖畫小說和漫畫, 兒童, 漫畫、圖像小說與連環漫畫, 科幻小說與奇幻小說, 幻想".split(", ").collect::<Vec<&str>>();
         test_tags_vec.sort();
@@ -424,28 +432,28 @@ mod tests {
 
     #[test]
     fn test_book_publisher() -> Result<()> {
-        let book_publisher = get_book_page("silent-witch-1")?.get_publisher();
+        let book_publisher = "silent-witch-1".get_book_page()?.get_publisher();
 
         Ok(assert_eq!(book_publisher, "台灣角川"))
     }
 
     #[test]
     fn test_book_release_date() -> Result<()> {
-        let book_release_date = get_book_page("silent-witch-1")?.get_release_date();
+        let book_release_date = "silent-witch-1".get_book_page()?.get_release_date();
 
         Ok(assert_eq!(book_release_date, "2022-5-27"))
     }
 
     #[test]
     fn test_book_language() -> Result<()> {
-        let book_language = get_book_page("mistborn-trilogy")?.get_language();
+        let book_language = "mistborn-trilogy".get_book_page()?.get_language();
 
         Ok(assert_eq!(book_language, "英文"))
     }
 
     #[test]
     fn test_book_metadata() -> Result<()> {
-        let book_metadata = get_metadata("J2FjG5BoyDiEQfQn-uI4OA", &ProgressBar::hidden())?;
+        let book_metadata = "J2FjG5BoyDiEQfQn-uI4OA".get_metadata(&ProgressBar::hidden())?;
 
         let test_book_metadata = Metadata {
             id: "J2FjG5BoyDiEQfQn-uI4OA".to_string(),
