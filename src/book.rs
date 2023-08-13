@@ -1,5 +1,11 @@
 use anyhow::Result;
 use scraper::{Html, Selector};
+use std::{
+    fmt::Display,
+    fs::{create_dir, OpenOptions},
+    io::Write,
+    path::Path,
+};
 
 #[derive(Debug, PartialEq)]
 enum Rating {
@@ -28,6 +34,7 @@ pub struct Metadata {
 }
 
 const BOOK_PATH: &str = "https://www.kobo.com/tw/zh/ebook/";
+const CSV_FILE_PATH: &str = "./metadata.csv";
 
 pub fn get_id(input: &str) -> Option<String> {
     let is_not_kobo_book_url = !input.contains(BOOK_PATH);
@@ -226,9 +233,77 @@ fn get_language(html: &Html) -> String {
     language
 }
 
+impl Metadata {
+    pub fn append_to_csv_file(self) -> Result<()> {
+        let img_dir = "./img";
+        if !Path::new(img_dir).exists() {
+            create_dir(img_dir)?;
+        }
+
+        let mut img_name = 1;
+        let mut img_path;
+        loop {
+            img_path = format!("{}/{}.jpg", img_dir, img_name);
+            if !Path::new(&img_path).exists() {
+                break;
+            }
+            img_name += 1;
+        }
+
+        let mut img_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&img_path)?;
+        let img_response = reqwest::blocking::get(self.cover)?;
+
+        let img = img_response.bytes()?;
+        img_file.write_all(&img)?;
+
+        let mut csv_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(CSV_FILE_PATH)?;
+        let line = format!(
+            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
+            self.id,
+            self.title,
+            self.authors,
+            self.series_name.unwrap_or_default(),
+            self.series_index
+                .map(|index| index.to_string())
+                .unwrap_or_default(),
+            img_path,
+            self.synopsis,
+            self.tags,
+            self.rating,
+            self.publisher,
+            self.release_date,
+            self.language
+        );
+        csv_file.write_all(line.as_bytes())?;
+
+        Ok(())
+    }
+}
+
+impl Display for Rating {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let rating = match self {
+            Rating::NotRated => 0,
+            Rating::One => 1,
+            Rating::Two => 2,
+            Rating::Three => 3,
+            Rating::Four => 4,
+            Rating::Five => 5,
+        };
+        write!(f, "{}", rating)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn input_non_kobo_url() {
@@ -365,5 +440,36 @@ mod tests {
         };
 
         Ok(assert_eq!(book_metadata, test_book_metadata))
+    }
+
+    #[test]
+    fn test_append_to_csv_file() -> Result<()> {
+        let book_metadata = Metadata {
+            id: "id".to_string(),
+            title: "title".to_string(),
+            authors: "auth, ors".to_string(),
+            series_name: Some("series name".to_string()),
+            series_index: Some(0.0),
+            cover: "https://cdn.kobo.com/book-images/04b3ec92-aaa7-4757-b1ac-ff143aed0848/1650/2200/100/False/J2FjG5BoyDiEQfQn-uI4OA.jpg".to_string(),
+            synopsis: "<p>synopsis</p>".to_string(),
+            tags: "t, a, g, s".to_string(),
+            rating: Rating::NotRated,
+            publisher: "publisher".to_string(),
+            release_date: "0000-0-0".to_string(),
+            language: "language".to_string(),
+        };
+        book_metadata.append_to_csv_file()?;
+
+        let csv_file = fs::read_to_string(CSV_FILE_PATH)?.trim().to_string();
+        let test_csv_file = r#""id","title","auth, ors","series name","0","./img/1.jpg","<p>synopsis</p>","t, a, g, s","0","publisher","0000-0-0","language""#;
+        assert_eq!(csv_file, test_csv_file);
+
+        let img_path = csv_file.split(r#"",""#).nth(5).unwrap_or_default();
+        assert!(Path::new(img_path).exists());
+
+        fs::remove_file(CSV_FILE_PATH)?;
+        fs::remove_file(img_path)?;
+
+        Ok(())
     }
 }

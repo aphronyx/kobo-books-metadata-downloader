@@ -12,7 +12,6 @@ fn main() -> Result<()> {
         stdin().read_line(&mut input)?;
 
         if input.trim() == "done" {
-            println!("Done!");
             break;
         }
 
@@ -25,7 +24,8 @@ fn main() -> Result<()> {
 
     for book_id in book_ids {
         let book_metadata = book::get_metadata(&book_id)?;
+        book_metadata.append_to_csv_file()?;
     }
 
-    Ok(())
+    Ok(println!("Done!"))
 }
