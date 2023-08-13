@@ -142,7 +142,15 @@ fn get_authors_str(html: &Html) -> String {
 }
 
 fn get_series_name(html: &Html) -> Option<String> {
-    todo!()
+    let series_name_selector =
+        Selector::parse("a[data-track-info='{}']").expect("Invalid selector");
+    let series_name = html
+        .select(&series_name_selector)
+        .next()?
+        .text()
+        .collect::<String>();
+
+    Some(series_name)
 }
 
 fn get_series_index(html: &Html) -> Option<f64> {
@@ -218,6 +226,17 @@ mod tests {
         Ok(assert_eq!(
             book_authors,
             "John Green, Lauren Myracle, Maureen Johnson"
+        ))
+    }
+
+    #[test]
+    fn test_book_series_name() -> Result<()> {
+        let book_page = get_book_page("defiant-68")?;
+        let book_series_name = get_series_name(&book_page);
+
+        Ok(assert_eq!(
+            book_series_name,
+            Some("The Skyward Series".to_string())
         ))
     }
 }
