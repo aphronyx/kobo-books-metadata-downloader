@@ -8,6 +8,9 @@ use std::{
     path::Path,
 };
 
+const BOOK_PATH: &str = "https://www.kobo.com/tw/zh/ebook/";
+const CSV_FILE_PATH: &str = "./metadata.csv";
+
 #[derive(Debug, PartialEq)]
 enum Rating {
     NotRated,
@@ -33,9 +36,6 @@ pub struct Metadata {
     release_date: String,
     language: String,
 }
-
-const BOOK_PATH: &str = "https://www.kobo.com/tw/zh/ebook/";
-const CSV_FILE_PATH: &str = "./metadata.csv";
 
 pub fn get_id(input: &str) -> Option<String> {
     let is_not_kobo_book_url = !input.contains(BOOK_PATH);
@@ -339,23 +339,23 @@ mod tests {
 
     #[test]
     fn input_non_kobo_url() {
-        let book_name = get_id("done");
+        let book_id = get_id("done");
 
-        assert_eq!(book_name, None)
+        assert_eq!(book_id, None)
     }
 
     #[test]
     fn input_no_id_url() {
-        let book_name = get_id("https://www.kobo.com/tw/zh/ebook/");
+        let book_id = get_id("https://www.kobo.com/tw/zh/ebook/");
 
-        assert_eq!(book_name, None)
+        assert_eq!(book_id, None)
     }
 
     #[test]
     fn input_kobo_book_url() {
-        let book_name = get_id("https://www.kobo.com/tw/zh/ebook/tSfRgYbwtzGWxEne-NJKWw");
+        let book_id = get_id("https://www.kobo.com/tw/zh/ebook/tSfRgYbwtzGWxEne-NJKWw");
 
-        assert_eq!(book_name, Some("tSfRgYbwtzGWxEne-NJKWw".to_string()))
+        assert_eq!(book_id, Some("tSfRgYbwtzGWxEne-NJKWw".to_string()))
     }
 
     #[test]
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_append_to_csv_file() -> Result<()> {
-        let book_metadata = Metadata {
+        Metadata {
             id: "id".to_string(),
             title: "title".to_string(),
             authors: "auth, ors".to_string(),
@@ -480,8 +480,7 @@ mod tests {
             publisher: "publisher".to_string(),
             release_date: "0000-0-0".to_string(),
             language: "language".to_string(),
-        };
-        book_metadata.append_to_csv_file(&ProgressBar::hidden())?;
+        }.append_to_csv_file(&ProgressBar::hidden())?;
 
         let csv_file = fs::read_to_string(CSV_FILE_PATH)?.trim().to_string();
         let test_csv_file = r#""id","title","auth, ors","series name","0","./img/1.jpg","<p>synopsis</p>","t, a, g, s","0","publisher","0000-0-0","language""#;
