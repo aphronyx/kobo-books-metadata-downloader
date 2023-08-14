@@ -1,3 +1,3 @@
 cargo build --release
-cp ./target/release/kobo-books-metadata-downloader ./kobo-books-metadata-downloader
-chmod +x ./kobo-books-metadata-downloader
+cp ./target/release/kobo-books-metadata-downloader ./demo/kobo-books-metadata-downloader
+chmod +x ./demo/kobo-books-metadata-downloader
