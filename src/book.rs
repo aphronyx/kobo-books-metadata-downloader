@@ -11,6 +11,7 @@ use std::{
 const BOOK_PATH: &str = "https://www.kobo.com/tw/zh/ebook/";
 const CSV_FILE_PATH: &str = "./metadata.csv";
 
+#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 enum Rating {
     NotRated,
@@ -285,8 +286,8 @@ impl PageHtml for Html {
         tags_vec.join(", ")
     }
 
-    // TODO
     fn get_rating(&self) -> Rating {
+        // TODO
         Rating::NotRated
     }
 
