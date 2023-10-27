@@ -2,67 +2,42 @@ use anyhow::Result;
 use indicatif::ProgressBar;
 use scraper::{Html, Selector};
 use std::{
-    fmt::Display,
     fs::{create_dir, OpenOptions},
     io::Write,
     path::Path,
 };
 
 const BOOK_PATH: &str = "https://www.kobo.com/tw/zh/ebook/";
+const IMG_DIR: &str = "./img";
 const CSV_FILE_PATH: &str = "./metadata.csv";
-
-#[allow(dead_code)]
-#[derive(Debug, PartialEq)]
-enum Rating {
-    NotRated,
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
-}
 
 #[derive(Debug, PartialEq)]
 pub struct Metadata {
     id: String,
     title: String,
+    subtitle: Option<String>,
     authors: String,
     series_name: Option<String>,
     series_index: Option<f64>,
     cover: String,
     synopsis: String,
     tags: String,
-    rating: Rating,
     publisher: String,
     release_date: String,
-    language: String,
-}
-
-impl Display for Rating {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let rating = match self {
-            Rating::NotRated => 0,
-            Rating::One => 1,
-            Rating::Two => 2,
-            Rating::Three => 3,
-            Rating::Four => 4,
-            Rating::Five => 5,
-        };
-        write!(f, "{}", rating)
-    }
+    language_code: String,
+    isbn: String,
 }
 
 impl Metadata {
     pub fn append_to_csv_file(self, pb: &ProgressBar) -> Result<()> {
-        let img_dir = "./img";
-        if !Path::new(img_dir).exists() {
-            create_dir(img_dir)?;
+        if !Path::new(IMG_DIR).exists() {
+            create_dir(IMG_DIR)?;
         }
 
         let mut img_name = 1;
         let mut img_path;
         loop {
-            img_path = format!("{}/{}.jpg", img_dir, img_name);
+            img_path = format!("{}/{}.jpg", IMG_DIR, img_name);
             if !Path::new(&img_path).exists() {
                 break;
             }
@@ -79,14 +54,31 @@ impl Metadata {
         img_file.write_all(&img)?;
         pb.inc(1);
 
-        let mut csv_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(CSV_FILE_PATH)?;
-        let line = format!(
-            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
+        if !Path::new(CSV_FILE_PATH).exists() {
+            let mut csv_wtr = csv::Writer::from_path(CSV_FILE_PATH)?;
+            csv_wtr.write_record([
+                "ID",
+                "Title",
+                "Subtitle",
+                "Author(s)",
+                "Series",
+                "Series Index",
+                "Cover Path",
+                "Synopsis (HTML)",
+                "Tag(s)",
+                "Publisher",
+                "Release Date (yyyy-m-d)",
+                "Language Code (ISO 639-1)",
+                "ISBN",
+            ])?;
+        }
+
+        let csv_file = OpenOptions::new().append(true).open(CSV_FILE_PATH)?;
+        let mut csv_wtr = csv::Writer::from_writer(csv_file);
+        csv_wtr.write_record([
             self.id,
             self.title,
+            self.subtitle.unwrap_or_default(),
             self.authors,
             self.series_name.unwrap_or_default(),
             self.series_index
@@ -95,12 +87,11 @@ impl Metadata {
             img_path,
             self.synopsis,
             self.tags,
-            self.rating,
             self.publisher,
             self.release_date,
-            self.language
-        );
-        csv_file.write_all(line.as_bytes())?;
+            self.language_code,
+            self.isbn,
+        ])?;
         pb.inc(1);
 
         Ok(())
@@ -135,6 +126,9 @@ impl Id for &str {
         let title = book_page.get_title();
         pb.inc(1);
 
+        let subtitle = book_page.get_subtitle();
+        pb.inc(1);
+
         let authors = book_page.get_authors_str();
         pb.inc(1);
 
@@ -153,31 +147,32 @@ impl Id for &str {
         let tags = book_page.get_tags_str();
         pb.inc(1);
 
-        let rating = book_page.get_rating();
-        pb.inc(1);
-
         let publisher = book_page.get_publisher();
         pb.inc(1);
 
         let release_date = book_page.get_release_date();
         pb.inc(1);
 
-        let language = book_page.get_language();
+        let language_code = book_page.get_language_code();
+        pb.inc(1);
+
+        let isbn = book_page.get_isbn();
         pb.inc(1);
 
         Ok(Metadata {
             id: self.to_string(),
             title,
+            subtitle,
             authors,
             series_name,
             series_index,
             cover,
             synopsis,
             tags,
-            rating,
             publisher,
             release_date,
-            language,
+            language_code,
+            isbn,
         })
     }
 
@@ -192,16 +187,17 @@ impl Id for &str {
 
 trait PageHtml {
     fn get_title(&self) -> String;
+    fn get_subtitle(&self) -> Option<String>;
     fn get_authors_str(&self) -> String;
     fn get_series_name(&self) -> Option<String>;
     fn get_series_index(&self) -> Option<f64>;
     fn get_cover_url(&self) -> String;
     fn get_synopsis_html(&self) -> String;
     fn get_tags_str(&self) -> String;
-    fn get_rating(&self) -> Rating;
     fn get_publisher(&self) -> String;
     fn get_release_date(&self) -> String;
-    fn get_language(&self) -> String;
+    fn get_language_code(&self) -> String;
+    fn get_isbn(&self) -> String;
 }
 
 impl PageHtml for Html {
@@ -216,13 +212,24 @@ impl PageHtml for Html {
         title
     }
 
+    fn get_subtitle(&self) -> Option<String> {
+        let subtitle_selector =
+            Selector::parse("div.item-info span.subtitle").expect("Invalid selector");
+        let subtitle = self
+            .select(&subtitle_selector)
+            .next()
+            .map(|span| span.text().collect::<String>().trim().to_string());
+
+        subtitle
+    }
+
     fn get_authors_str(&self) -> String {
         let authors_selector = Selector::parse("a.contributor-name").expect("Invalid selector");
         let authors_str = self
             .select(&authors_selector)
             .map(|a| a.text().collect())
             .collect::<Vec<String>>()
-            .join(", ");
+            .join("&");
 
         authors_str
     }
@@ -283,12 +290,7 @@ impl PageHtml for Html {
             .collect::<Vec<String>>();
         tags_vec.sort();
         tags_vec.dedup();
-        tags_vec.join(", ")
-    }
-
-    fn get_rating(&self) -> Rating {
-        // TODO
-        Rating::NotRated
+        tags_vec.join(",")
     }
 
     fn get_publisher(&self) -> String {
@@ -327,23 +329,42 @@ impl PageHtml for Html {
         release_date
     }
 
-    fn get_language(&self) -> String {
+    fn get_language_code(&self) -> String {
         let language_selector =
             Selector::parse("div.bookitem-secondary-metadata li > span").expect("Invalid selector");
-        let language = self
+        let language_code = self
             .select(&language_selector)
             .nth(2)
+            .map(|span| span.text().collect::<String>())
+            .and_then(|language| match language.as_str() {
+                "中文" => Some("zh"),
+                "英文" => Some("en"),
+                "日文" => Some("ja"),
+                _ => None,
+            })
+            .unwrap_or_default()
+            .to_string();
+
+        language_code
+    }
+
+    fn get_isbn(&self) -> String {
+        let isbn_selector =
+            Selector::parse("div.bookitem-secondary-metadata li > span").expect("Invalid selector");
+        let isbn = self
+            .select(&isbn_selector)
+            .nth(1)
             .map(|span| span.text().collect())
             .unwrap_or_default();
 
-        language
+        isbn
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::fs::{self, remove_dir, remove_file};
 
     #[test]
     fn input_non_kobo_url() {
@@ -374,12 +395,19 @@ mod tests {
     }
 
     #[test]
+    fn test_book_subtitle() -> Result<()> {
+        let book_subtitle = "2kbdRVwUITa5gQeowqSvKQ".get_book_page()?.get_subtitle();
+
+        Ok(assert_eq!(book_subtitle, None))
+    }
+
+    #[test]
     fn test_book_authors() -> Result<()> {
         let book_authors = "let-it-snow-5".get_book_page()?.get_authors_str();
 
         Ok(assert_eq!(
             book_authors,
-            "John Green, Lauren Myracle, Maureen Johnson"
+            "John Green&Lauren Myracle&Maureen Johnson"
         ))
     }
 
@@ -423,10 +451,10 @@ mod tests {
     fn test_book_tags() -> Result<()> {
         let book_tags = "i-357".get_book_page()?.get_tags_str();
 
-        let mut test_tags_vec = "青少年 - YA, 漫畫、圖畫小說和漫畫, 兒童, 漫畫、圖像小說與連環漫畫, 科幻小說與奇幻小說, 幻想".split(", ").collect::<Vec<&str>>();
+        let mut test_tags_vec = "青少年 - YA,漫畫、圖畫小說和漫畫,兒童,漫畫、圖像小說與連環漫畫,科幻小說與奇幻小說,幻想".split(',').collect::<Vec<&str>>();
         test_tags_vec.sort();
         test_tags_vec.dedup();
-        let test_tags = test_tags_vec.join(", ");
+        let test_tags = test_tags_vec.join(",");
 
         Ok(assert_eq!(book_tags, test_tags))
     }
@@ -446,10 +474,17 @@ mod tests {
     }
 
     #[test]
-    fn test_book_language() -> Result<()> {
-        let book_language = "mistborn-trilogy".get_book_page()?.get_language();
+    fn test_book_language_code() -> Result<()> {
+        let book_language_code = "mistborn-trilogy".get_book_page()?.get_language_code();
 
-        Ok(assert_eq!(book_language, "英文"))
+        Ok(assert_eq!(book_language_code, "en"))
+    }
+
+    #[test]
+    fn test_book_isbn() -> Result<()> {
+        let book_isbn = "mistborn-trilogy".get_book_page()?.get_isbn();
+
+        Ok(assert_eq!(book_isbn, "9781429989817"))
     }
 
     #[test]
@@ -459,16 +494,17 @@ mod tests {
         let test_book_metadata = Metadata {
             id: "J2FjG5BoyDiEQfQn-uI4OA".to_string(),
             title: "不便利的便利店".to_string(),
+            subtitle: Some("불편한 편의점".to_string()),
             authors: "金浩然 （김호연）".to_string(),
             series_name: Some("Soul".to_string()),
             series_index: None,
             cover: "https://cdn.kobo.com/book-images/04b3ec92-aaa7-4757-b1ac-ff143aed0848/1650/2200/100/False/J2FjG5BoyDiEQfQn-uI4OA.jpg".to_string(),
             synopsis: "<p><strong>人生就是會有很多不便利、不舒服，</strong><br>\n<strong>這間有點慘澹的便利店，卻為我們撐起了閃閃發光的空間……</strong></p>\n<p><strong>艱難時刻的光亮之書</strong><br>\n<strong>一間便利店，接通了我們的幸福人生</strong></p>\n<p><strong>★韓國年度最受歡迎小說</strong><br>\n<strong>★銷售破70萬冊，25個都市特選年度之書</strong><br>\n<strong>★Yes24年度之書，韓國各大書店排行榜總冠軍，口碑直追《歡迎光臨夢境百貨》</strong><br>\n<strong>★電子書平台「米莉的書齋」年度圖書第二名</strong><br>\n<strong>★韓國中央圖書館館員推薦之書</strong><br>\n<strong>★售出泰、日、簡中、台灣、越南、印尼等多國版權</strong><br>\n<strong>★影視改編熱烈進行中</strong></p>\n<p>◎全球獨家收錄：作者手寫給台灣讀者的問候箋</p>\n<p>謝哲青＼作家、旅行家<br>\n盧建彰＼導演<br>\n李盈姿＼芒草心慈善協會祕書長<br>\n別家門市＼「超商系」插畫粉絲團<br>\n太咪＼作家、《太咪瘋韓國》版主<br>\n山女孩kit＼作家<br>\n方億玲＼而立書店店長<br>\n徐慧玲＼聆韵企管顧問創辦人──鼓掌推薦</p>\n<p>◎韓國讀者口碑推薦：</p>\n<p>‧這是一本我想推薦給所有人的人生之書。你讀的時候，很可能一會兒哭一會兒笑，但不知不覺間心頭就暖呼呼了。<br>\n‧擦肩而過的人，竟然可以成為彼此生活前進的支撐。一本讓我看到人生力量的書。<br>\n‧我的眼角掛著淚，嘴邊帶著笑。多虧這本書，讓我熬過疫病籠罩的日子。<br>\n‧哭著，笑著，心也跟著暖了。<br>\n‧場景不陌生、人物不陌生，就連裡面的衝突也不陌生，但是人們彼此表達善意卻是這個冷陌時代最需要的態度。</p>\n<p><strong>這間有點不便利，卻讓人想一再前往的便利店，</strong><br>\n<strong>藏著能在艱難生活中給你安慰的各樣物品。</strong></p>\n<p><strong>買一送一的喜悅、三角飯糰模樣的悲傷，</strong><br>\n<strong>以及一萬元所帶來的四次歡笑，</strong><br>\n<strong>充滿特別的故事與奇妙商品組合的便利店，時時歡迎您！</strong></p>\n<p>廉女士搭火車途中，驚覺錢包不見了，此時一通電話來告知，說在車站撿到了包包，還嚅囁詢問能否借用點錢買便當吃。廉女士答應了。</p>\n<p>果然如她所想，對方是一名流浪漢。廉女士在拿回包包時，告知對方，歡迎他來自己經營的便利店吃便當。</p>\n<p>這間便利店生意不太好，店員更是各種邊緣人的組合：上了年紀還為子女操碎了心的婦人；準備公務員考試多年的年輕女孩；五十多歲靠微薄薪水養家的一家之主。而廉女士為了如同家人般的員工，努力把店鋪撐了下來。</p>\n<p>然而，大夜班店員突然辭職，讓她苦惱不已。就在這時，常來吃報廢便當的流浪漢竟陰錯陽差接下這份工作……</p>\n<p>\u{f0d8}</p>\n<p><strong>只差一點點就陷落於孤立和衝突的人生，</strong><br>\n<strong>如何在這個小小的空間裡悄悄獲得喘息？</strong><br>\n<strong>一間不夠便利的便利店，又如何接通大家的幸福人生？</strong></p>\n<p><strong>◎便利店「幫人生加值」小語</strong></p>\n<p>※我問，支持妳的力量究竟是什麼？<br>\n她說，人生本來就是不斷解決問題，既然都要解決問題，那就努力選還可以的問題來解。</p>\n<p>※便利店是個人們來來去去的空間，無論店員還是客人，都只是短暫停留的過客。便利店就像間加油站，讓人們用物品或金錢為自己加值。</p>\n<p>※為什麼開心？因為炸雞？因為爸爸的陪伴？其實無論是什麼都沒關係，因為能一起吃雞的就是家人。</p>\n<p>※人生就是關係，關係的根本就是溝通。我發現只要我們能跟身旁的人交心，幸福其實離我們不遠。</p>\n<p>※巴布狄倫的外婆曾經告訴他，幸福不是在通往目標路途上的某樣東西，而是那條路本身就是幸福。你所遇見的每個人，都在苦苦掙扎著與什麼對抗，所以你必須親切待人。</p>\n<p>【作者簡介】<strong>金浩然（김호연）</strong></p>\n<p><strong>全天候說故事的人</strong><br>\n<strong>人生目標：透過電影、漫畫、小說講述各樣故事</strong></p>\n<p>1974年出生於首爾。畢業於高麗大學人文學院國語國文學科。初入職場時，在電影公司參與創作的劇本《諜變任務》被改編為電影，自此成為編劇。<br>\n第二份工作是擔任漫畫策劃人員，撰寫的《人體實驗區》獲得第一屆富川漫畫故事競賽大獎，自此成了漫畫腳本家。在出版社擔任小說編輯一陣子之後，決定轉換跑道，成為為全職作家。<br>\n他努力實踐「年輕時就該任意揮灑文字」的理念，以長篇小說《望遠洞兄弟》奪下2013年第9屆世界文學獎的優秀獎，展開小說家生涯之路。此後還推出長篇小說《情敵》《幽靈作家》《浮士德》及散文集《每天寫，重新寫，寫到最後》，並參與電影《烈日追殺》的劇本及《南漢山城》的策劃。<br>\n2021年繼《望遠洞兄弟》以後，再度推出描繪鄰里人情的溫暖故事《不便利的便利店》，成為口碑長紅的年度暢銷冠軍，並售出多國版權，影視改編也熱烈進行中。</p>\n<p>＊獲獎紀錄：</p>\n<p>《人體實驗區》獲第一屆富川漫畫故事競賽<br>\n《望遠洞兄弟》獲2013年第9屆世界文學獎優秀獎<br>\n《不便利的便利店》獲韓國超過25個都市選爲年度之書</p>\n<p>譯者 <strong>陳品芳</strong><br>\n政大韓文系畢，曾於台韓兩地職場打滾，目前為韓中專職譯者。熱愛各種二、三次元娛樂，享受在趕稿與耍廢之間穿梭的自由時光。譯有《剝削首爾》《讓尼采當你的心理師》《K-Pop征服世界的秘密》等書。</p>\n".to_string(),
             tags: "小說與文學".to_string(),
-            rating: Rating::NotRated,
             publisher: "寂寞".to_string(),
             release_date: "2022-9-1".to_string(),
-            language: "中文".to_string(),
+            language_code: "zh".to_string(),
+            isbn: "9786269593859".to_string()
         };
 
         Ok(assert_eq!(book_metadata, test_book_metadata))
@@ -479,27 +515,50 @@ mod tests {
         Metadata {
             id: "id".to_string(),
             title: "title".to_string(),
-            authors: "auth, ors".to_string(),
+            subtitle: Some("subtitle".to_string()),
+            authors: "auth&ors".to_string(),
             series_name: Some("series name".to_string()),
             series_index: Some(0.0),
             cover: "https://cdn.kobo.com/book-images/04b3ec92-aaa7-4757-b1ac-ff143aed0848/1650/2200/100/False/J2FjG5BoyDiEQfQn-uI4OA.jpg".to_string(),
             synopsis: "<p>synopsis</p>".to_string(),
-            tags: "t, a, g, s".to_string(),
-            rating: Rating::NotRated,
+            tags: "t,a,g,s".to_string(),
             publisher: "publisher".to_string(),
             release_date: "0000-0-0".to_string(),
-            language: "language".to_string(),
+            language_code: "lang".to_string(),
+            isbn: "0000000000000".to_string()
         }.append_to_csv_file(&ProgressBar::hidden())?;
 
         let csv_file = fs::read_to_string(CSV_FILE_PATH)?.trim().to_string();
-        let test_csv_file = r#""id","title","auth, ors","series name","0","./img/1.jpg","<p>synopsis</p>","t, a, g, s","0","publisher","0000-0-0","language""#;
-        assert_eq!(csv_file, test_csv_file);
+        let mut test_csv_wtr = csv::Writer::from_writer(vec![]);
+        test_csv_wtr.write_record([
+            "ID",
+            "Title",
+            "Subtitle",
+            "Author(s)",
+            "Series",
+            "Series Index",
+            "Cover Path",
+            "Synopsis (HTML)",
+            "Tag(s)",
+            "Publisher",
+            "Release Date (yyyy-m-d)",
+            "Language Code (ISO 639-1)",
+            "ISBN",
+        ])?;
+        let test_csv = "ID,Title,Subtitle,Author(s),Series,Series Index,Cover Path,Synopsis (HTML),Tag(s),Publisher,Release Date (yyyy-m-d),Language Code (ISO 639-1),ISBN\n\
+        id,title,subtitle,auth&ors,series name,0,./img/1.jpg,<p>synopsis</p>,\"t,a,g,s\",publisher,0000-0-0,lang,0000000000000";
+        assert_eq!(csv_file, test_csv);
 
-        let img_path = csv_file.split(r#"",""#).nth(5).unwrap_or_default();
+        let img_path = csv_file
+            .split('\n')
+            .last()
+            .and_then(|last_line| last_line.split(',').nth(6))
+            .unwrap_or_default();
         assert!(Path::new(img_path).exists());
 
-        fs::remove_file(CSV_FILE_PATH)?;
-        fs::remove_file(img_path)?;
+        remove_file(CSV_FILE_PATH)?;
+        remove_file(img_path)?;
+        remove_dir(IMG_DIR)?;
 
         Ok(())
     }
